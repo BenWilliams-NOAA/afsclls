@@ -9,15 +9,16 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: More about what it does (maybe more than one line).
-    Continuation lines should be indented.
-License: What license is it under?
+Description: Query data and calculate ABL longline survey RPN, RPW and eventually ISS.
+    Has a suite of functions for different data pulls and calculations.
+License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
 Imports: 
     dplyr,
     magrittr,
-    odbc
+    odbc,
+    tidytable
 Suggests: 
     knitr,
     rmarkdown

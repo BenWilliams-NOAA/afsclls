@@ -1,47 +1,50 @@
 ---
-title: LLS RPN and RPW Calculations"
+title: "example"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{example}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
-author: Ben Williams  
 ---
 
 ```{r, include = FALSE}
 knitr::opts_chunk$set(
   collapse = TRUE,
-  comment = "#>",
-  message = FALSE,
-  warning = FALSE
+  comment = "#>"
 )
 ```
 
-## LLS Data Pull
+Step 1. get access to the server, if you send something like this along to the IT helpdesk they will know what to do (access will need to be approved by the database holder - currently Pat):
 
-```{r setup}
+> Could I please be provided access to:
+> "Driver={SQL Server};
+>    server=161.55.120.71,1919;
+>    database=LONGLINE;
+
+once provided with access the below code should work
+
+*notes:*
+ *this data pull does not do any filtering (other than year for the example)*
+ *filtering/corrections are done during the next steps*
+
+```{r setup, eval=F}
+# load ----
 library(afsclls)
 
-# Connect to the database
+# globals ----
+year = 2022
+
+# call data 
 db <- connect()
-# pull data ----
-# note - combined with vessel data
-catch_data <- q_catch(year=2022, db=db)
-
-# note - combined species and length data
-length_data <- q_lengths(year=2022, db=db)
-
-# note - all stratum data combined
-stratum_data <- q_strata(db=db)
-
+catch_data <- q_catch(year, db)
+length_data <- q_lengths(year, db)
+strata_data <- q_strata(db)
 disconnect(db)
 ```
 
-## Calculations
+The next step is to calculate the mean weights from von Bertalanffy parameters and clean up a few items.
 
-### 1. Calculate mean weights
-
-```{r}
+```{r, eval=F}
 length_data %>% 
   tidytable::mutate(unit_wt = a_vonbert * length^b_vonbert) %>% # flag - wt is based upon single growth period
   tidytable::summarise(total_freq = sum(frequency),
@@ -51,5 +54,35 @@ length_data %>%
   tidytable::mutate(mean_len = len_freq / total_freq,
                     mean_wt = wt_freq / total_freq, 
                     .by = c(cruise_station_id, depth_stratum_id, species_code)) -> mean_wts
-mean_wts
+```
+
+
+```{r, eval=F}
+# change null ineffective to 0  
+# drop ineffective skates > 5 hooks, filter to just important species
+# change mammal sighting to 0/1
+# if depredation is present add in multiplier and se
+# REVIEW: split out REBS shortraker 30576; rougheye 30050 (group code 30051 post-1997, 30040 pre-1998)
+# TODO: split out Kamchatka/arrowtooth ...
+# expand total catch - adjust for ineffective hooks to 45 hooks and total skates, and whale dep for sablefish
+catch_data %>% 
+    tidytable::mutate(mammal_sighting = ifelse(mammal_sighting=='S', 1, 0),
+                    wcfd = ifelse(depredation_flag==1, 1.176471, 1.0),
+                    wcfd_se = ifelse(depredation_flag==1, 0.2070316, 0.0),
+                    # species_code = tidytable::case_when(species_code %in% c(30040, 30051) ~ 30050,
+                    #                                                         TRUE ~ species_code)
+                    ) %>% 
+  tidytable::replace_na(list(ineffective = 0)) %>% 
+  tidytable::filter(ineffective <= 5, # flag - removing anything with > 5 ineffective
+                    species_code %in% c(310,320,440,455,475,480,10110,10112,10115,10120,20510,
+                                        21220,21230,21720,30020,30050,30470,30576,99995)) %>%
+  tidytable::mutate(adj_freq = sum(catch_freq / (45 - ineffective) * 45, na.rm = TRUE), 
+                    .by = c(cruise_station_id, hachi, species_code)) %>% 
+  tidytable::mutate(adj_catch_dep = 
+                      tidytable::case_when(depredation_flag==1 & species_code==20510 ~ wcfd * adj_freq,
+                                                         depredation_flag==0 & species_code==20510 & 
+                                                           mammal_sighting==1 ~ wcfd * adj_freq, 
+                                                         TRUE ~ catch_freq),
+                    adj_catch = catch_freq * adj_freq) %>% 
+  tidytable::mutate(n_hachi = sum(catch_freq), .by = c(cruise_station_id, hachi)) -> dat1
 ```
