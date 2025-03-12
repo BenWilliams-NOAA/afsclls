@@ -79,24 +79,15 @@
     
 <p>Step 1. get access to the server, if you send something like this
 along to the IT helpdesk they will know what to do (access will need to
-be approved by the database holder (Pat)):</p>
+be approved by the database holder - currently Pat):</p>
 <blockquote>
 <p>Could I please be provided access to: “Driver={SQL Server};
 server=161.55.120.71,1919; database=LONGLINE;</p>
 </blockquote>
 <p>once provided with access the below code should work</p>
-<div class="section level2">
-<h2 id="notes">notes:<a class="anchor" aria-label="anchor" href="#notes"></a>
-</h2>
-</div>
-<div class="section level2">
-<h2 id="this-data-pull-does-not-do-any-filtering-other-than-year-for-the-example">this data pull does not do any filtering (other than year for the
-example)<a class="anchor" aria-label="anchor" href="#this-data-pull-does-not-do-any-filtering-other-than-year-for-the-example"></a>
-</h2>
-</div>
-<div class="section level2">
-<h2 id="filteringcorrections-are-done-during-the-next-steps">filtering/corrections are done during the next steps<a class="anchor" aria-label="anchor" href="#filteringcorrections-are-done-during-the-next-steps"></a>
-</h2>
+<p><em>notes:</em> <em>this data pull does not do any filtering (other
+than year for the example)</em> <em>filtering/corrections are done
+during the next steps</em></p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="co"># load ----</span></span>
 <span><span class="kw"><a href="https://rdrr.io/r/base/library.html" class="external-link">library</a></span><span class="op">(</span><span class="va">afsclls</span><span class="op">)</span></span>
@@ -110,7 +101,53 @@ example)<a class="anchor" aria-label="anchor" href="#this-data-pull-does-not-do-
 <span><span class="va">length_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/q_lengths.html">q_lengths</a></span><span class="op">(</span><span class="va">year</span>, <span class="va">db</span><span class="op">)</span></span>
 <span><span class="va">strata_data</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/q_strata.html">q_strata</a></span><span class="op">(</span><span class="va">db</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/disconnect.html">disconnect</a></span><span class="op">(</span><span class="va">db</span><span class="op">)</span></span></code></pre></div>
-</div>
+<p>The next step is to calculate the mean weights from von Bertalanffy
+parameters and clean up a few items.</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">length_data</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>unit_wt <span class="op">=</span> <span class="va">a_vonbert</span> <span class="op">*</span> <span class="va">length</span><span class="op">^</span><span class="va">b_vonbert</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> <span class="co"># flag - wt is based upon single growth period</span></span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/summarize.html" class="external-link">summarise</a></span><span class="op">(</span>total_freq <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">frequency</span><span class="op">)</span>,</span>
+<span>                        len_freq <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">length</span> <span class="op">*</span> <span class="va">frequency</span><span class="op">)</span>,</span>
+<span>                        wt_freq <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">unit_wt</span> <span class="op">*</span> <span class="va">frequency</span>, na.rm<span class="op">=</span><span class="cn">T</span><span class="op">)</span>,</span>
+<span>                        .by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cruise_station_id</span>, <span class="va">depth_stratum_id</span>, <span class="va">species_code</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>mean_len <span class="op">=</span> <span class="va">len_freq</span> <span class="op">/</span> <span class="va">total_freq</span>,</span>
+<span>                    mean_wt <span class="op">=</span> <span class="va">wt_freq</span> <span class="op">/</span> <span class="va">total_freq</span>, </span>
+<span>                    .by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cruise_station_id</span>, <span class="va">depth_stratum_id</span>, <span class="va">species_code</span><span class="op">)</span><span class="op">)</span> <span class="op">-&gt;</span> <span class="va">mean_wts</span></span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># change null ineffective to 0  </span></span>
+<span><span class="co"># drop ineffective skates &gt; 5 hooks, filter to just important species</span></span>
+<span><span class="co"># change mammal sighting to 0/1</span></span>
+<span><span class="co"># if depredation is present add in multiplier and se</span></span>
+<span><span class="co"># REVIEW: split out REBS shortraker 30576; rougheye 30050 (group code 30051 post-1997, 30040 pre-1998)</span></span>
+<span><span class="co"># TODO: split out Kamchatka/arrowtooth ...</span></span>
+<span><span class="co"># expand total catch - adjust for ineffective hooks to 45 hooks and total skates, and whale dep for sablefish</span></span>
+<span><span class="va">catch_data</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>    <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>mammal_sighting <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">mammal_sighting</span><span class="op">==</span><span class="st">'S'</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>,</span>
+<span>                    wcfd <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">depredation_flag</span><span class="op">==</span><span class="fl">1</span>, <span class="fl">1.176471</span>, <span class="fl">1.0</span><span class="op">)</span>,</span>
+<span>                    wcfd_se <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/ifelse.html" class="external-link">ifelse</a></span><span class="op">(</span><span class="va">depredation_flag</span><span class="op">==</span><span class="fl">1</span>, <span class="fl">0.2070316</span>, <span class="fl">0.0</span><span class="op">)</span>,</span>
+<span>                    <span class="co"># species_code = tidytable::case_when(species_code %in% c(30040, 30051) ~ 30050,</span></span>
+<span>                    <span class="co">#                                                         TRUE ~ species_code)</span></span>
+<span>                    <span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/replace_na.html" class="external-link">replace_na</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>ineffective <span class="op">=</span> <span class="fl">0</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/filter.html" class="external-link">filter</a></span><span class="op">(</span><span class="va">ineffective</span> <span class="op">&lt;=</span> <span class="fl">5</span>, <span class="co"># flag - removing ineffective sets</span></span>
+<span>                    <span class="va">species_code</span> <span class="op"><a href="https://rdrr.io/r/base/match.html" class="external-link">%in%</a></span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">310</span>,<span class="fl">320</span>,<span class="fl">440</span>,<span class="fl">455</span>,<span class="fl">475</span>,<span class="fl">480</span>,<span class="fl">10110</span>,<span class="fl">10112</span>,<span class="fl">10115</span>,<span class="fl">10120</span>,<span class="fl">20510</span>,</span>
+<span>                                        <span class="fl">21220</span>,<span class="fl">21230</span>,<span class="fl">21720</span>,<span class="fl">30020</span>,<span class="fl">30050</span>,<span class="fl">30470</span>,<span class="fl">30576</span>,<span class="fl">99995</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span></span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>adj_freq <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">catch_freq</span> <span class="op">/</span> <span class="op">(</span><span class="fl">45</span> <span class="op">-</span> <span class="va">ineffective</span><span class="op">)</span> <span class="op">*</span> <span class="fl">45</span>, na.rm <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span>, </span>
+<span>                    .by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cruise_station_id</span>, <span class="va">hachi</span>, <span class="va">species_code</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>adj_catch_dep <span class="op">=</span> </span>
+<span>                      <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/case_when.html" class="external-link">case_when</a></span><span class="op">(</span><span class="va">depredation_flag</span><span class="op">==</span><span class="fl">1</span> <span class="op">&amp;</span> <span class="va">species_code</span><span class="op">==</span><span class="fl">20510</span> <span class="op">~</span> <span class="va">wcfd</span> <span class="op">*</span> <span class="va">adj_freq</span>,</span>
+<span>                                                         <span class="va">depredation_flag</span><span class="op">==</span><span class="fl">0</span> <span class="op">&amp;</span> <span class="va">species_code</span><span class="op">==</span><span class="fl">20510</span> <span class="op">&amp;</span> </span>
+<span>                                                           <span class="va">mammal_sighting</span><span class="op">==</span><span class="fl">1</span> <span class="op">~</span> <span class="va">wcfd</span> <span class="op">*</span> <span class="va">adj_freq</span>, </span>
+<span>                                                         <span class="cn">TRUE</span> <span class="op">~</span> <span class="va">catch_freq</span><span class="op">)</span>,</span>
+<span>                    adj_catch <span class="op">=</span> <span class="va">catch_freq</span> <span class="op">*</span> <span class="va">adj_freq</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>n_hachi <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">catch_freq</span><span class="op">)</span>, .by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cruise_station_id</span>, <span class="va">hachi</span>, <span class="va">species_code</span><span class="op">)</span><span class="op">)</span> <span class="op">-&gt;</span> <span class="va">dat1</span></span>
+<span></span>
+<span><span class="va">dat1</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/summarize.html" class="external-link">summarise</a></span><span class="op">(</span>total_catch <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">adj_catch</span><span class="op">)</span>, </span>
+<span>                       total_skates <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">n_hachi</span><span class="op">)</span>,</span>
+<span>                       .by <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">cruise_station_id</span>, <span class="va">stratum2</span>, <span class="va">species_code</span><span class="op">)</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">tidytable</span><span class="fu">::</span><span class="fu"><a href="https://markfairbanks.github.io/tidytable/reference/mutate.html" class="external-link">mutate</a></span><span class="op">(</span>cpue <span class="op">=</span> <span class="va">total_catch</span> <span class="op">/</span> <span class="va">total_skates</span><span class="op">)</span> <span class="op"><a href="../reference/pipe.html">%&gt;%</a></span> </span>
+<span>  <span class="fu">dplyr</span><span class="fu">::</span><span class="fu"><a href="https://dplyr.tidyverse.org/reference/mutate-joins.html" class="external-link">left_join</a></span><span class="op">(</span><span class="va">length_data</span><span class="op">)</span></span></code></pre></div>
   </div>
 
   <div class="col-md-3 hidden-xs hidden-sm" id="pkgdown-sidebar">

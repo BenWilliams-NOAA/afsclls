@@ -73,7 +73,7 @@ catch_data %>%
                     #                                                         TRUE ~ species_code)
                     ) %>% 
   tidytable::replace_na(list(ineffective = 0)) %>% 
-  tidytable::filter(ineffective <= 5, # flag - removing anything with > 5 ineffective
+  tidytable::filter(ineffective <= 5, # flag - removing ineffective sets
                     species_code %in% c(310,320,440,455,475,480,10110,10112,10115,10120,20510,
                                         21220,21230,21720,30020,30050,30470,30576,99995)) %>%
   tidytable::mutate(adj_freq = sum(catch_freq / (45 - ineffective) * 45, na.rm = TRUE), 
@@ -84,5 +84,12 @@ catch_data %>%
                                                            mammal_sighting==1 ~ wcfd * adj_freq, 
                                                          TRUE ~ catch_freq),
                     adj_catch = catch_freq * adj_freq) %>% 
-  tidytable::mutate(n_hachi = sum(catch_freq), .by = c(cruise_station_id, hachi)) -> dat1
+  tidytable::mutate(n_hachi = sum(catch_freq), .by = c(cruise_station_id, hachi, species_code)) -> dat1
+
+dat1 %>% 
+  tidytable::summarise(total_catch = sum(adj_catch), 
+                       total_skates = sum(n_hachi),
+                       .by = c(cruise_station_id, stratum2, species_code)) %>% 
+  tidytable::mutate(cpue = total_catch / total_skates) %>% 
+  dplyr::left_join(length_data)
 ```
