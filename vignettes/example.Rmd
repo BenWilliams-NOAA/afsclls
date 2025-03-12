@@ -1,0 +1,55 @@
+---
+title: LLS RPN and RPW Calculations"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{example}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+author: Ben Williams  
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+## LLS Data Pull
+
+```{r setup}
+library(afsclls)
+
+# Connect to the database
+db <- connect()
+# pull data ----
+# note - combined with vessel data
+catch_data <- q_catch(year=2022, db=db)
+
+# note - combined species and length data
+length_data <- q_lengths(year=2022, db=db)
+
+# note - all stratum data combined
+stratum_data <- q_strata(db=db)
+
+disconnect(db)
+```
+
+## Calculations
+
+### 1. Calculate mean weights
+
+```{r}
+length_data %>% 
+  tidytable::mutate(unit_wt = a_vonbert * length^b_vonbert) %>% # flag - wt is based upon single growth period
+  tidytable::summarise(total_freq = sum(frequency),
+                        len_freq = sum(length * frequency),
+                        wt_freq = sum(unit_wt * frequency, na.rm=T),
+                        .by = c(cruise_station_id, depth_stratum_id, species_code)) %>% 
+  tidytable::mutate(mean_len = len_freq / total_freq,
+                    mean_wt = wt_freq / total_freq, 
+                    .by = c(cruise_station_id, depth_stratum_id, species_code)) -> mean_wts
+mean_wts
+```

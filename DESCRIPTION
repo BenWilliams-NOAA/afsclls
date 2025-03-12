@@ -1,0 +1,25 @@
+Package: afsclls
+Type: Package
+Title: ABL Longline survey RPN, RPW and ISS
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Ben", "Williams",
+      email = "ben.williams@noaa.gov",
+      role = c("aut", "cre")
+    )
+  )
+Description: More about what it does (maybe more than one line).
+    Continuation lines should be indented.
+License: What license is it under?
+Encoding: UTF-8
+LazyData: true
+Imports: 
+    dplyr,
+    magrittr,
+    odbc
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 7.3.2
